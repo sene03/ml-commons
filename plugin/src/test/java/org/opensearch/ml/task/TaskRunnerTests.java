@@ -5,15 +5,8 @@
 
 package org.opensearch.ml.task;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import java.time.Instant;
 import java.util.Map;
@@ -41,6 +34,7 @@ import org.opensearch.ml.stats.MLStat;
 import org.opensearch.ml.stats.MLStats;
 import org.opensearch.ml.stats.suppliers.CounterSupplier;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.transport.RemoteTransportException;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
 
@@ -171,5 +165,17 @@ public class TaskRunnerTests extends OpenSearchTestCase {
         mlTaskRunner.run(FunctionName.AGENT, request, transportService, listener);
         Long value = (Long) mlStats.getStat(MLNodeLevelStat.ML_CIRCUIT_BREAKER_TRIGGER_COUNT).getValue();
         assertEquals(0L, value.longValue());
+    }
+
+    public void testHandleAsyncMLTaskFailure_WithNestedExceptionShouldIncludeRootCause() {
+        String errorMessage = "root error";
+        RemoteTransportException wrapperException = new RemoteTransportException(
+            "Remote Transport Exception",
+            new IllegalArgumentException(errorMessage)
+        );
+        mlTaskRunner.handleAsyncMLTaskFailure(mlTask, wrapperException);
+        ArgumentCaptor<Map> argumentCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(mlTaskManager, times(1)).updateMLTask(eq(mlTask.getTaskId()), any(), argumentCaptor.capture(), anyLong(), anyBoolean());
+        assertEquals(errorMessage, argumentCaptor.getValue().get(MLTask.ERROR_FIELD));
     }
 }

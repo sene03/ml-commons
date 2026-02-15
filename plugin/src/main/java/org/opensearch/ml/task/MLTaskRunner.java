@@ -5,6 +5,7 @@
 
 package org.opensearch.ml.task;
 
+import static org.opensearch.core.rest.RestStatus.INTERNAL_SERVER_ERROR;
 import static org.opensearch.ml.utils.MLNodeUtils.checkOpenCircuitBreaker;
 
 import java.util.HashMap;
@@ -22,6 +23,8 @@ import org.opensearch.ml.common.transport.MLTaskRequest;
 import org.opensearch.ml.common.transport.MLTaskResponse;
 import org.opensearch.ml.stats.MLNodeLevelStat;
 import org.opensearch.ml.stats.MLStats;
+import org.opensearch.ml.utils.error.ErrorMessage;
+import org.opensearch.ml.utils.error.ErrorMessageFactory;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportResponseHandler;
 import org.opensearch.transport.TransportService;
@@ -65,8 +68,9 @@ public abstract class MLTaskRunner<Request extends MLTaskRequest, Response exten
         // update task state to MLTaskState.FAILED
         // update task error
         if (mlTask.isAsync()) {
+            ErrorMessage errorMessage = ErrorMessageFactory.createErrorMessage(e, INTERNAL_SERVER_ERROR.getStatus());
             Map<String, Object> updatedFields = ImmutableMap
-                .of(MLTask.STATE_FIELD, MLTaskState.FAILED.name(), MLTask.ERROR_FIELD, e.getMessage());
+                .of(MLTask.STATE_FIELD, MLTaskState.FAILED.name(), MLTask.ERROR_FIELD, errorMessage.getDetails());
             // wait for 2 seconds to make sure failed state persisted
             mlTaskManager.updateMLTask(mlTask.getTaskId(), null, updatedFields, TIMEOUT_IN_MILLIS, true);
         }

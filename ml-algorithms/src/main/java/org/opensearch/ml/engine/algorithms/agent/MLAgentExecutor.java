@@ -1031,7 +1031,9 @@ public class MLAgentExecutor implements Executable, SettingsChangeListener {
                     )
             );
         }, ex -> {
-            agentResponse.put(ERROR_MESSAGE, ex.getMessage());
+            Throwable rootCause = ExceptionsHelper.unwrapCause(ex);
+            String errorMessage = rootCause != null ? rootCause.getMessage() : ex.getMessage();
+            agentResponse.put(ERROR_MESSAGE, errorMessage);
 
             updatedTask.put(RESPONSE_FIELD, agentResponse);
             updatedTask.put(STATE_FIELD, MLTaskState.FAILED);
@@ -1050,7 +1052,7 @@ public class MLAgentExecutor implements Executable, SettingsChangeListener {
                     )
             );
 
-            updateInteractionWithFailure(parentInteractionId, memory, ex.getMessage());
+            updateInteractionWithFailure(parentInteractionId, memory, errorMessage);
         });
     }
 
